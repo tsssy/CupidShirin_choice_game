@@ -56,11 +56,9 @@ class APIConfig:
     GEMINI_MODEL_NAME = "gemini-2.5-pro"
     
     # Telegram Bot Configuration
-    # yukio原来的 token（已注释）
-    # TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8029098791:AAE2pWPLPEsiIBPTu9-OOQC3zF2a9QbaW8s")
-    # lushia新的 token
-    TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8014721220:AAHUJui6sV82nX80uG14ynlF8TeQ3xpSF0U")
-    TELEGRAM_BOT_TOKEN_TEST = os.getenv("TELEGRAM_BOT_TOKEN_TEST", "7960283253:AAEeMcp1XGJjIe8iwpVwd3W2gKvlTfRPJUw")
+    # 灵魂探索机器人 token
+    TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "7872384160:AAFsQlXli0hRL8VPWElK6Sge7u3pgCxmvkk")
+    TELEGRAM_BOT_TOKEN_TEST = os.getenv("TELEGRAM_BOT_TOKEN_TEST", "7872384160:AAFsQlXli0hRL8VPWElK6Sge7u3pgCxmvkk")
     
     @classmethod
     def validate_gemini_key(cls) -> bool:
@@ -72,8 +70,8 @@ class BotConfig:
     """Bot behavior and UI configuration."""
     
     # Bot URLs
-    BOT_WEBAPP_URL = "https://t.me/CupidYukioBot/app?startapp"
-    BOT_WEBAPP_URL_TEST = "https://t.me/CupidYukioTestbot/app?startapp"
+    BOT_WEBAPP_URL = "https://t.me/CupidShirinBot/app?startapp"
+    BOT_WEBAPP_URL_TEST = "https://t.me/CupidShirinBot/app?startapp"
     
     # Gender selection options
     GENDER_OPTIONS = {

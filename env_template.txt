@@ -1,5 +1,8 @@
 # Copy this content to a file named .env and replace with your actual values
 
+# Telegram Bot Token
+TELEGRAM_BOT_TOKEN=7872384160:AAFsQlXli0hRL8VPWElK6Sge7u3pgCxmvkk
+
 # Gemini API Key
 GEMINI_API_KEY=your_actual_api_key_here
 
