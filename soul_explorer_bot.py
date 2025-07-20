@@ -16,7 +16,7 @@ class SoulExplorerBot:
         """
         self.api_key = api_key
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
         
         # 初始化状态
         self.total_chapters = 10
