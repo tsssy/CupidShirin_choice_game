@@ -94,56 +94,62 @@ class SoulExplorerBot:
         # 基于用户选择更新故事状态
         if previous_choice == "A":
             # 用户选择了A，通常是主动探索
-            if "图书馆" in self.current_location:
-                self.current_context = "在图书馆中深入探索"
-            elif "沙滩" in self.current_location:
-                self.current_context = "在沙滩上发现新事物"
-            else:
-                self.current_context = "主动探索当前环境"
+            self.current_context = "主动探索当前环境"
         elif previous_choice == "B":
             # 用户选择了B，通常是直觉或信任
-            if "图书馆" in self.current_location:
-                self.current_context = "相信直觉，专注于核心线索"
-            elif "沙滩" in self.current_location:
-                self.current_context = "凭直觉行动，发现隐藏信息"
-            else:
-                self.current_context = "依靠直觉做出选择"
+            self.current_context = "依靠直觉做出选择"
         elif previous_choice == "C":
             # 用户选择了C，通常是寻求帮助或谨慎
             self.current_context = "谨慎行事，寻求帮助或观察"
         elif previous_choice == "D":
             # 用户选择了D，通常是放弃或离开
+            self.current_context = "选择离开或放弃当前路径"
+            # 如果用户选择离开，清空当前地点，让AI决定新场景
             if "离开" in self.current_context or "放弃" in self.current_context:
-                # 如果之前已经选择离开，可能需要新的场景
-                self.current_location = "新的地点"
-                self.current_context = "在新的环境中继续探索"
-            else:
-                self.current_context = "选择离开或放弃当前路径"
+                self.current_location = ""
         
         return f"基于选择{previous_choice}，当前情境：{self.current_context}"
     
     def _extract_story_state(self, story_text: str):
         """从故事文本中提取状态信息"""
         # 提取地点信息
-        location_keywords = ["图书馆", "沙滩", "花园", "房间", "街道", "森林", "城堡", "洞穴"]
+        location_keywords = ["图书馆", "沙滩", "花园", "房间", "街道", "森林", "城堡", "洞穴", "咖啡厅", "公园", "书店", "博物馆", "广场", "小巷", "天台", "地下室"]
         for keyword in location_keywords:
             if keyword in story_text:
                 self.current_location = keyword
                 break
         
         # 提取时间信息
-        time_keywords = ["深夜", "傍晚", "清晨", "白天", "夜晚", "黄昏", "黎明"]
+        time_keywords = ["深夜", "傍晚", "清晨", "白天", "夜晚", "黄昏", "黎明", "午后", "午夜"]
         for keyword in time_keywords:
             if keyword in story_text:
                 self.current_time = keyword
                 break
         
         # 提取主题信息
-        theme_keywords = ["神秘", "探索", "爱情", "友情", "冒险", "发现", "寻找", "解开"]
+        theme_keywords = ["神秘", "探索", "爱情", "友情", "冒险", "发现", "寻找", "解开", "思考", "感受", "体验"]
         for keyword in theme_keywords:
             if keyword in story_text:
                 self.story_theme = keyword
                 break
+    
+    def _get_story_context_for_ai(self) -> str:
+        """获取故事上下文供AI使用"""
+        context_parts = []
+        
+        if self.current_location:
+            context_parts.append(f"当前地点：{self.current_location}")
+        if self.current_time:
+            context_parts.append(f"当前时间：{self.current_time}")
+        if self.current_context:
+            context_parts.append(f"当前情境：{self.current_context}")
+        if self.story_theme:
+            context_parts.append(f"故事主题：{self.story_theme}")
+        
+        if self.user_choices:
+            context_parts.append(f"用户选择历史：{self.user_choices}")
+        
+        return " | ".join(context_parts) if context_parts else "故事开始"
     
     def _build_system_prompt(self) -> str:
         """构建系统提示词"""
@@ -163,11 +169,12 @@ class SoulExplorerBot:
 重要规则：
 1. 每个剧情必须在100-150字符以内
 2. 提供A、B、C、D四个选项
-3. 根据用户选择推进剧情
+3. **严格根据用户选择推进剧情和转换场景**
 4. 最多10个章节
 5. 最后进行灵魂伴侣类型分析（探索/理性/情绪/命运）
 6. 不要回答关于自己或流程的问题
 7. 专注于用户的内心反应和决策逻辑
+8. **场景转换规则：用户选择离开某地时，必须转移到新场景**
 
 当前状态：
 - 总章节数：{self.total_chapters}
@@ -324,11 +331,11 @@ D. [选项D]
         """生成下一章节"""
         system_prompt = self._build_system_prompt()
         
-        # 构建故事上下文
-        story_context = self._build_story_context(previous_choice)
+        # 获取上一章的故事内容作为上下文
+        story_context = self._get_story_context_for_ai()
         
         user_prompt = f"""
-**重要：保持故事连贯性！**
+**重要：根据用户选择构建连贯的故事！**
 
 当前故事状态：
 - 地点：{self.current_location}
@@ -338,18 +345,26 @@ D. [选项D]
 
 用户选择历史：{self.user_choices}
 当前是第{self.current_chapter}章（共{self.total_chapters}章）
-上一章用户选择了：{previous_choice}
 
-**连贯性要求：**
-1. 必须基于当前地点继续故事，除非用户选择明确离开
-2. 时间要合理延续，不能跳跃
-3. 情境要基于之前的选择自然发展
-4. 保持相同的角色和设定
+**用户刚刚选择了：{previous_choice}**
+
+**AI指导原则：**
+1. **严格遵循用户选择** - 如果用户选择离开某个地方，故事必须转移到新场景
+2. **场景转换逻辑** - 根据用户选择合理转换场景（如：离开图书馆→街道/公园/咖啡厅等）
+3. **时间连续性** - 时间要合理延续，不能跳跃
+4. **情节连贯性** - 新场景要基于用户选择自然发展
+5. **角色一致性** - 保持相同的角色设定和性格
+
+**场景转换示例：**
+- 选择"离开图书馆" → 转移到街道、公园、咖啡厅、书店等新场景
+- 选择"进入房间" → 转移到室内场景
+- 选择"走向户外" → 转移到户外场景
+- 选择"寻找帮助" → 转移到有人类活动的场景
 
 请生成下一个微型剧情（100-150字符），要求：
-1. 严格基于当前故事状态继续
-2. 地点、时间、角色保持一致
-3. 基于用户选择合理推进情节
+1. **必须根据用户选择{previous_choice}构建新场景**
+2. 如果用户选择离开当前地点，必须转移到新场景
+3. 新场景要符合用户选择的逻辑
 4. 一个段落格式
 5. 提供A、B、C、D四个行为选择
 6. 符合常识逻辑，高度互动
