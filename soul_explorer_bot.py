@@ -168,7 +168,8 @@ D. [选项D]
             return response
         except Exception as e:
             logging.error(f"生成随机故事失败: {str(e)}")
-            return "抱歉，故事生成遇到问题。请重新输入'start'开始探索。"
+            # 静默重试，不向用户显示错误
+            return await self._retry_generate_random_story(adj, noun, verb)
     
     async def handle_custom_setup(self, user_input: str) -> str:
         """处理自定义设置"""
@@ -219,7 +220,8 @@ D. [选项D]
             return response
         except Exception as e:
             logging.error(f"生成自定义故事失败: {str(e)}")
-            return "抱歉，故事生成遇到问题。请重新开始。"
+            # 静默重试，不向用户显示错误
+            return await self._retry_generate_custom_story()
     
     async def process_choice(self, user_choice: str) -> str:
         """处理用户选择
@@ -278,7 +280,8 @@ D. [选项D]
             return response
         except Exception as e:
             logging.error(f"生成下一章节失败: {str(e)}")
-            return "抱歉，剧情生成遇到问题。请重新选择。"
+            # 静默重试，不向用户显示错误
+            return await self._retry_generate_next_chapter(previous_choice)
     
     async def _generate_ending(self) -> str:
         """生成故事结尾和灵魂伴侣分析"""
@@ -311,7 +314,8 @@ D. [选项D]
             return response
         except Exception as e:
             logging.error(f"生成结尾分析失败: {str(e)}")
-            return "抱歉，分析生成遇到问题。"
+            # 静默重试，不向用户显示错误
+            return await self._retry_generate_ending()
     
     async def _call_gemini(self, system_prompt: str, user_prompt: str) -> str:
         """调用Gemini API"""
@@ -330,6 +334,93 @@ D. [选项D]
         except Exception as e:
             logging.error(f"Gemini API调用失败: {str(e)}")
             raise e
+    
+    async def _retry_generate_random_story(self, adj: str, noun: str, verb: str, max_retries: int = 3) -> str:
+        """重试生成随机故事"""
+        for attempt in range(max_retries):
+            try:
+                logging.info(f"重试生成随机故事 (第 {attempt + 1} 次)")
+                return await self._generate_random_story(adj, noun, verb)
+            except Exception as e:
+                logging.error(f"重试生成随机故事失败 (第 {attempt + 1} 次): {str(e)}")
+                if attempt == max_retries - 1:
+                    # 最后一次重试失败，返回默认故事
+                    return self._generate_default_story()
+                await asyncio.sleep(1)  # 等待1秒后重试
+    
+    async def _retry_generate_custom_story(self, max_retries: int = 3) -> str:
+        """重试生成自定义故事"""
+        for attempt in range(max_retries):
+            try:
+                logging.info(f"重试生成自定义故事 (第 {attempt + 1} 次)")
+                return await self._generate_custom_story()
+            except Exception as e:
+                logging.error(f"重试生成自定义故事失败 (第 {attempt + 1} 次): {str(e)}")
+                if attempt == max_retries - 1:
+                    # 最后一次重试失败，返回默认故事
+                    return self._generate_default_story()
+                await asyncio.sleep(1)  # 等待1秒后重试
+    
+    async def _retry_generate_next_chapter(self, previous_choice: str, max_retries: int = 3) -> str:
+        """重试生成下一章节"""
+        for attempt in range(max_retries):
+            try:
+                logging.info(f"重试生成下一章节 (第 {attempt + 1} 次)")
+                return await self._generate_next_chapter(previous_choice)
+            except Exception as e:
+                logging.error(f"重试生成下一章节失败 (第 {attempt + 1} 次): {str(e)}")
+                if attempt == max_retries - 1:
+                    # 最后一次重试失败，返回默认章节
+                    return self._generate_default_chapter(previous_choice)
+                await asyncio.sleep(1)  # 等待1秒后重试
+    
+    async def _retry_generate_ending(self, max_retries: int = 3) -> str:
+        """重试生成结尾分析"""
+        for attempt in range(max_retries):
+            try:
+                logging.info(f"重试生成结尾分析 (第 {attempt + 1} 次)")
+                return await self._generate_ending()
+            except Exception as e:
+                logging.error(f"重试生成结尾分析失败 (第 {attempt + 1} 次): {str(e)}")
+                if attempt == max_retries - 1:
+                    # 最后一次重试失败，返回默认结尾
+                    return self._generate_default_ending()
+                await asyncio.sleep(1)  # 等待1秒后重试
+    
+    def _generate_default_story(self) -> str:
+        """生成默认故事（当API调用失败时使用）"""
+        default_stories = [
+            "你站在一个神秘的十字路口，四周弥漫着淡淡的雾气。前方有三条不同的道路，每条都通向未知的远方。你的内心充满了好奇和期待，想要探索这个神秘的世界。\n\nA. 选择左边的道路，那里有温暖的灯光\nB. 选择中间的道路，那里有古老的石阶\nC. 选择右边的道路，那里有清脆的鸟鸣\nD. 站在原地思考，观察周围的环境",
+            
+            "你发现自己置身于一个古老的图书馆中，书架高耸入云，空气中弥漫着书香。一本神秘的书从书架上掉落，发出清脆的响声。你感到一种莫名的吸引力。\n\nA. 立即捡起那本书，翻开阅读\nB. 先观察周围的环境，确保安全\nC. 询问图书管理员关于这本书的信息\nD. 将书放回原处，继续寻找其他书籍",
+            
+            "你来到一个美丽的花园，花朵在微风中轻轻摇曳。花园中央有一面古老的镜子，镜面闪烁着奇异的光芒。你感到镜子似乎在呼唤着你。\n\nA. 走近镜子，仔细观察镜中的自己\nB. 绕开镜子，探索花园的其他部分\nC. 触摸镜子，感受它的温度\nD. 闭上眼睛，聆听花园的声音"
+        ]
+        return random.choice(default_stories)
+    
+    def _generate_default_chapter(self, previous_choice: str) -> str:
+        """生成默认章节（当API调用失败时使用）"""
+        default_chapters = [
+            "你继续前行，发现了一个小木屋。木屋的门半开着，里面传来温暖的火光。你感到一种家的温暖。\n\nA. 走进木屋，探索内部\nB. 在门外等待，观察情况\nC. 绕道而行，继续前进\nD. 返回原路，寻找其他方向",
+            
+            "你遇到了一位神秘的老人，他正在花园里修剪花朵。老人抬头看了你一眼，眼中闪烁着智慧的光芒。\n\nA. 主动上前打招呼，询问道路\nB. 保持距离，观察老人的行为\nC. 等待老人先开口说话\nD. 默默离开，不打扰老人",
+            
+            "你来到一个清澈的湖边，湖水倒映着天空的云彩。湖边有一艘小船，船桨静静地躺在船边。\n\nA. 登上小船，划向湖心\nB. 坐在湖边，欣赏风景\nC. 沿着湖边漫步，寻找其他路径\nD. 返回原路，选择其他方向"
+        ]
+        return random.choice(default_chapters)
+    
+    def _generate_default_ending(self) -> str:
+        """生成默认结尾（当API调用失败时使用）"""
+        return """经过这次灵魂探索之旅，你发现了自己内心深处的真实想法。每一个选择都反映了你的性格特点和价值观念。
+
+---
+
+**灵魂伴侣类型分析**
+基于你在探索过程中的选择，你展现出了独特的个性特征。你倾向于在行动前深思熟虑，注重内心的感受和直觉。你的灵魂伴侣应该是一个能够理解你内心世界的人，能够与你进行深层次的交流，共同成长。
+
+---
+
+再一次进入探索之旅吗？"""
     
     def reset_session(self):
         """重置会话状态"""

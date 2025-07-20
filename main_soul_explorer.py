@@ -173,7 +173,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             start_typing = asyncio.create_task(_keep_typing(context.bot, chat_id))
             try:
                 response = await user_bots[user_id].start_exploration(text)
-                await update.message.reply_text(response)
+                
+                # 提供选择按钮
+                keyboard = [
+                    [KeyboardButton("A"), KeyboardButton("B")],
+                    [KeyboardButton("C"), KeyboardButton("D")]
+                ]
+                reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+                await update.message.reply_text(response, reply_markup=reply_markup)
                 
                 # 保存会话数据
                 session_data = {
@@ -206,7 +213,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         start_typing = asyncio.create_task(_keep_typing(context.bot, chat_id))
         try:
             response = await bot_instance.handle_custom_setup(text)
-            await update.message.reply_text(response)
+            
+            # 如果自定义设置成功，提供选择按钮
+            if "格式错误" not in response and "请使用正确格式" not in response:
+                keyboard = [
+                    [KeyboardButton("A"), KeyboardButton("B")],
+                    [KeyboardButton("C"), KeyboardButton("D")]
+                ]
+                reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+                await update.message.reply_text(response, reply_markup=reply_markup)
+            else:
+                await update.message.reply_text(response)
         finally:
             start_typing.cancel()
             try:
@@ -220,7 +237,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         start_typing = asyncio.create_task(_keep_typing(context.bot, chat_id))
         try:
             response = await bot_instance.process_choice(text)
-            await update.message.reply_text(response)
             
             # 检查是否探索结束
             if "再一次进入探索之旅吗？" in response:
@@ -243,7 +259,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [KeyboardButton("是"), KeyboardButton("否")]
                 ]
                 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-                await update.message.reply_text("请选择：", reply_markup=reply_markup)
+                await update.message.reply_text(response, reply_markup=reply_markup)
+            else:
+                # 提供选择按钮
+                keyboard = [
+                    [KeyboardButton("A"), KeyboardButton("B")],
+                    [KeyboardButton("C"), KeyboardButton("D")]
+                ]
+                reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+                await update.message.reply_text(response, reply_markup=reply_markup)
             
         finally:
             start_typing.cancel()
