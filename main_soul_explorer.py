@@ -180,7 +180,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [KeyboardButton("C"), KeyboardButton("D")]
                 ]
                 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-                await update.message.reply_text(response, reply_markup=reply_markup)
+                
+                # 添加重试机制
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        await update.message.reply_text(response, reply_markup=reply_markup)
+                        break
+                    except Exception as e:
+                        logging.error(f"发送消息失败 (第 {attempt + 1} 次): {str(e)}")
+                        if attempt == max_retries - 1:
+                            # 最后一次重试失败，尝试发送简单消息
+                            try:
+                                await update.message.reply_text("故事开始中...请稍等片刻。")
+                            except:
+                                logging.error("无法发送任何消息给用户")
+                        else:
+                            await asyncio.sleep(1)
                 
                 # 保存会话数据
                 session_data = {
@@ -221,9 +237,36 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [KeyboardButton("C"), KeyboardButton("D")]
                 ]
                 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-                await update.message.reply_text(response, reply_markup=reply_markup)
+                
+                # 添加重试机制
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        await update.message.reply_text(response, reply_markup=reply_markup)
+                        break
+                    except Exception as e:
+                        logging.error(f"发送消息失败 (第 {attempt + 1} 次): {str(e)}")
+                        if attempt == max_retries - 1:
+                            # 最后一次重试失败，尝试发送简单消息
+                            try:
+                                await update.message.reply_text("故事开始中...请稍等片刻。")
+                            except:
+                                logging.error("无法发送任何消息给用户")
+                        else:
+                            await asyncio.sleep(1)
             else:
-                await update.message.reply_text(response)
+                # 添加重试机制
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        await update.message.reply_text(response)
+                        break
+                    except Exception as e:
+                        logging.error(f"发送消息失败 (第 {attempt + 1} 次): {str(e)}")
+                        if attempt == max_retries - 1:
+                            logging.error("无法发送任何消息给用户")
+                        else:
+                            await asyncio.sleep(1)
         finally:
             start_typing.cancel()
             try:
@@ -232,7 +275,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
         return
     
-    # 检查是否是选择选项 (A/B/C/D)
+                # 检查是否是选择选项 (A/B/C/D)
     if text.upper() in ['A', 'B', 'C', 'D']:
         start_typing = asyncio.create_task(_keep_typing(context.bot, chat_id))
         try:
@@ -259,7 +302,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [KeyboardButton("是"), KeyboardButton("否")]
                 ]
                 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-                await update.message.reply_text(response, reply_markup=reply_markup)
+                
+                # 添加重试机制
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        await update.message.reply_text(response, reply_markup=reply_markup)
+                        break
+                    except Exception as e:
+                        logging.error(f"发送消息失败 (第 {attempt + 1} 次): {str(e)}")
+                        if attempt == max_retries - 1:
+                            # 最后一次重试失败，尝试发送简单消息
+                            try:
+                                await update.message.reply_text("故事继续中...请稍等片刻。")
+                            except:
+                                logging.error("无法发送任何消息给用户")
+                        else:
+                            await asyncio.sleep(1)
             else:
                 # 提供选择按钮
                 keyboard = [
@@ -267,7 +326,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [KeyboardButton("C"), KeyboardButton("D")]
                 ]
                 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-                await update.message.reply_text(response, reply_markup=reply_markup)
+                
+                # 添加重试机制
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        await update.message.reply_text(response, reply_markup=reply_markup)
+                        break
+                    except Exception as e:
+                        logging.error(f"发送消息失败 (第 {attempt + 1} 次): {str(e)}")
+                        if attempt == max_retries - 1:
+                            # 最后一次重试失败，尝试发送简单消息
+                            try:
+                                await update.message.reply_text("故事继续中...请稍等片刻。")
+                            except:
+                                logging.error("无法发送任何消息给用户")
+                        else:
+                            await asyncio.sleep(1)
             
         finally:
             start_typing.cancel()
@@ -330,6 +405,18 @@ if __name__ == '__main__':
     
     application.add_handler(start_handler)
     application.add_handler(message_handler)
+    
+    # 添加错误处理器
+    async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """处理机器人错误"""
+        logging.error(f"机器人出现错误: {context.error}")
+        if update and hasattr(update, 'message') and update.message:
+            try:
+                await update.message.reply_text("抱歉，出现了一些技术问题。请稍后再试。")
+            except:
+                logging.error("无法发送错误消息给用户")
+    
+    application.add_error_handler(error_handler)
     
     # 添加错误处理和重试逻辑
     logging.info("正在启动灵魂探索机器人...")
