@@ -22,7 +22,9 @@ class SoulExplorerBot:
         self.total_chapters = 10
         self.current_chapter = 1
         self.user_choices = []  # 记录用户选择
+        self.user_choice_texts = []  # 记录用户选择的具体文本内容
         self.story_history = []  # 记录故事历史
+        self.interaction_history = []  # 记录用户与AI的交互历史
         self.is_custom_mode = False  # 是否为自定义模式
         self.custom_scene = ""  # 自定义场景
         self.custom_character = ""  # 自定义角色
@@ -104,9 +106,9 @@ class SoulExplorerBot:
         elif previous_choice == "D":
             # 用户选择了D，通常是放弃或离开
             self.current_context = "选择离开或放弃当前路径"
-            # 如果用户选择离开，清空当前地点，让AI决定新场景
-            if "离开" in self.current_context or "放弃" in self.current_context:
-                self.current_location = ""
+            # 强制清空当前地点，确保场景转换
+            self.current_location = ""
+            logging.info(f"用户选择D，强制清空地点，准备场景转换")
         
         return f"基于选择{previous_choice}，当前情境：{self.current_context}"
     
@@ -133,6 +135,24 @@ class SoulExplorerBot:
                 self.story_theme = keyword
                 break
     
+    def _record_interaction(self, user_choice: str, choice_text: str, ai_response: str):
+        """记录用户与AI的交互历史"""
+        interaction = {
+            'chapter': self.current_chapter,
+            'timestamp': datetime.now(UTC),
+            'user_choice': user_choice,
+            'choice_text': choice_text,
+            'ai_response': ai_response,
+            'story_state': {
+                'location': self.current_location,
+                'time': self.current_time,
+                'context': self.current_context,
+                'theme': self.story_theme
+            }
+        }
+        self.interaction_history.append(interaction)
+        logging.info(f"记录交互历史 - 章节: {self.current_chapter}, 选择: {user_choice}")
+    
     def _get_story_context_for_ai(self) -> str:
         """获取故事上下文供AI使用"""
         context_parts = []
@@ -150,6 +170,32 @@ class SoulExplorerBot:
             context_parts.append(f"用户选择历史：{self.user_choices}")
         
         return " | ".join(context_parts) if context_parts else "故事开始"
+    
+    def _check_scene_transition(self, user_choice: str):
+        """检查用户选择是否涉及场景转换"""
+        # 场景转换关键词
+        leave_keywords = ["离开", "走出", "退出", "放弃", "远离"]
+        enter_keywords = ["进入", "走进", "来到", "到达", "前往"]
+        move_keywords = ["走向", "前往", "去往", "奔向", "跑向"]
+        
+        # 获取用户选择对应的选项文本（这里需要从上一章的故事中提取）
+        # 由于我们无法直接获取选项文本，我们基于选择模式来判断
+        
+        # 如果用户选择D，通常涉及离开
+        if user_choice == "D":
+            self.current_location = ""
+            logging.info(f"检测到场景转换（选择D），清空当前地点")
+        # 如果用户选择A，通常涉及进入或探索
+        elif user_choice == "A" and self.current_location:
+            # 检查是否在特定场景中
+            if "图书馆" in self.current_location:
+                # 在图书馆选择A，可能涉及离开
+                self.current_location = ""
+                logging.info(f"检测到场景转换（在图书馆选择A），清空当前地点")
+        
+        # 如果当前地点为空，说明需要场景转换
+        if not self.current_location:
+            logging.info(f"准备场景转换，当前地点已清空")
     
     def _build_system_prompt(self) -> str:
         """构建系统提示词"""
@@ -301,11 +347,12 @@ D. [选项D]
             # 静默重试，不向用户显示错误
             return await self._retry_generate_custom_story()
     
-    async def process_choice(self, user_choice: str) -> str:
+    async def process_choice(self, user_choice: str, choice_text: str = "") -> str:
         """处理用户选择
         
         Args:
             user_choice (str): 用户选择 (A/B/C/D)
+            choice_text (str): 用户选择的具体文本内容
             
         Returns:
             str: 机器人响应
@@ -318,16 +365,25 @@ D. [选项D]
         
         # 记录选择
         self.user_choices.append(user_choice)
+        self.user_choice_texts.append(choice_text)  # 记录选择的具体文本
         
         # 检查是否达到最大章节数
         if self.current_chapter >= self.total_chapters:
             return await self._generate_ending()
         
+        # 检查用户选择是否涉及场景转换
+        self._check_scene_transition(user_choice)
+        
         # 生成下一章节
         self.current_chapter += 1
-        return await self._generate_next_chapter(user_choice)
+        response = await self._generate_next_chapter(user_choice, choice_text)
+        
+        # 记录交互历史
+        self._record_interaction(user_choice, choice_text, response)
+        
+        return response
     
-    async def _generate_next_chapter(self, previous_choice: str) -> str:
+    async def _generate_next_chapter(self, previous_choice: str, choice_text: str = "") -> str:
         """生成下一章节"""
         system_prompt = self._build_system_prompt()
         
@@ -335,7 +391,7 @@ D. [选项D]
         story_context = self._get_story_context_for_ai()
         
         user_prompt = f"""
-**重要：根据用户选择构建连贯的故事！**
+**🎯 续写模式：基于用户具体选择构建连贯故事！**
 
 当前故事状态：
 - 地点：{self.current_location}
@@ -347,24 +403,30 @@ D. [选项D]
 当前是第{self.current_chapter}章（共{self.total_chapters}章）
 
 **用户刚刚选择了：{previous_choice}**
+**用户选择的具体内容：{choice_text}**
 
-**AI指导原则：**
-1. **严格遵循用户选择** - 如果用户选择离开某个地方，故事必须转移到新场景
-2. **场景转换逻辑** - 根据用户选择合理转换场景（如：离开图书馆→街道/公园/咖啡厅等）
-3. **时间连续性** - 时间要合理延续，不能跳跃
-4. **情节连贯性** - 新场景要基于用户选择自然发展
-5. **角色一致性** - 保持相同的角色设定和性格
+**🎯 续写指导原则：**
+1. **直接续写用户选择** - 如果用户选择"进入咖啡馆"，直接描述在咖啡馆内的场景和感受
+2. **保持行为连贯性** - 用户选择做什么，故事就必须描述这个行为的结果和后续
+3. **场景自然延续** - 新场景必须基于用户选择的行为自然发展
+4. **情感状态延续** - 保持用户选择时的情感状态和动机
 
-**场景转换示例：**
-- 选择"离开图书馆" → 转移到街道、公园、咖啡厅、书店等新场景
-- 选择"进入房间" → 转移到室内场景
-- 选择"走向户外" → 转移到户外场景
-- 选择"寻找帮助" → 转移到有人类活动的场景
+**续写示例：**
+- 用户选择"进入咖啡馆" → 描述咖啡馆内的氛围、人物、感受
+- 用户选择"拿出手机搜索" → 描述搜索过程、发现的信息、新的选择
+- 用户选择"坐在长椅上思考" → 描述思考的内容、周围环境、内心感受
+- 用户选择"继续往前走" → 描述前方的新发现、环境变化、新的选择
+
+**禁止行为：**
+❌ 忽略用户选择的具体内容
+❌ 跳跃到不相关的场景
+❌ 重复之前的场景描述
+❌ 违背用户选择的行为逻辑
 
 请生成下一个微型剧情（100-150字符），要求：
-1. **必须根据用户选择{previous_choice}构建新场景**
-2. 如果用户选择离开当前地点，必须转移到新场景
-3. 新场景要符合用户选择的逻辑
+1. **直接续写用户选择：{choice_text}**
+2. **描述选择后的具体场景和感受**
+3. **基于选择行为提供新的选项**
 4. 一个段落格式
 5. 提供A、B、C、D四个行为选择
 6. 符合常识逻辑，高度互动
@@ -470,12 +532,12 @@ D. [选项D]
                     return self._generate_default_story()
                 await asyncio.sleep(1)  # 等待1秒后重试
     
-    async def _retry_generate_next_chapter(self, previous_choice: str, max_retries: int = 3) -> str:
+    async def _retry_generate_next_chapter(self, previous_choice: str, choice_text: str = "", max_retries: int = 3) -> str:
         """重试生成下一章节"""
         for attempt in range(max_retries):
             try:
                 logging.info(f"重试生成下一章节 (第 {attempt + 1} 次)")
-                return await self._generate_next_chapter(previous_choice)
+                return await self._generate_next_chapter(previous_choice, choice_text)
             except Exception as e:
                 logging.error(f"重试生成下一章节失败 (第 {attempt + 1} 次): {str(e)}")
                 if attempt == max_retries - 1:
@@ -535,7 +597,9 @@ D. [选项D]
         """重置会话状态"""
         self.current_chapter = 1
         self.user_choices = []
+        self.user_choice_texts = []
         self.story_history = []
+        self.interaction_history = []
         self.is_custom_mode = False
         self.custom_scene = ""
         self.custom_character = ""
@@ -554,11 +618,14 @@ D. [选项D]
             'current_chapter': self.current_chapter,
             'total_chapters': self.total_chapters,
             'user_choices': self.user_choices,
+            'user_choice_texts': self.user_choice_texts,
+            'interaction_history': self.interaction_history,
             'is_custom_mode': self.is_custom_mode,
             'custom_scene': self.custom_scene,
             'custom_character': self.custom_character,
             'current_location': self.current_location,
             'current_time': self.current_time,
             'current_context': self.current_context,
-            'story_theme': self.story_theme
+            'story_theme': self.story_theme,
+            'story_history': self.story_history
         } 

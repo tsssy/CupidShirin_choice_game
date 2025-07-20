@@ -13,6 +13,7 @@ from pymongo import MongoClient
 client = MongoClient(Config.Database.get_auth_uri())
 db = client[Config.Database.MONGO_DATABASE]
 soul_explorer_sessions = db['soul_explorer_sessions']  # 新的集合名
+story_sessions = db[Config.Database.STORY_SESSIONS_COLLECTION]  # 故事会话集合
 
 logging.basicConfig(
     format=Config.Logging.LOG_FORMAT,
@@ -25,6 +26,8 @@ user_bots = {}
 user_stage = {}  # 记录每个用户的会话阶段
 # Store user exploration status
 user_exploration_started = {}  # 记录用户是否已经开始探索
+# Store user choice texts
+user_choice_texts = {}  # 记录用户选择的具体文本内容
 
 # Test MongoDB connection
 def test_mongodb_connection():
@@ -58,6 +61,25 @@ def get_session_from_mongodb(user_id: int):
         logging.error(f"Error getting session from MongoDB for user {user_id}: {str(e)}")
         return None
 
+def _extract_and_store_choice_texts(user_id: int, response_text: str):
+    """从响应文本中提取选项文本并存储"""
+    try:
+        # 初始化用户的选择文本存储
+        if user_id not in user_choice_texts:
+            user_choice_texts[user_id] = {}
+        
+        # 使用正则表达式提取选项文本
+        import re
+        choice_pattern = r'([A-D])\.\s*([^\n]+)'
+        matches = re.findall(choice_pattern, response_text)
+        
+        for choice, text in matches:
+            user_choice_texts[user_id][choice] = text.strip()
+            logging.info(f"存储用户 {user_id} 的选择文本: {choice} -> {text.strip()}")
+            
+    except Exception as e:
+        logging.error(f"提取选项文本失败: {str(e)}")
+
 def save_exploration_result_to_mongodb(user_id: int, exploration_data: dict):
     """Save exploration result to MongoDB."""
     try:
@@ -78,6 +100,60 @@ def save_exploration_result_to_mongodb(user_id: int, exploration_data: dict):
         logging.error(f"Error saving exploration result to MongoDB for user {user_id}: {str(e)}")
         return False
 
+def save_story_session_to_mongodb(user_id: int, story_data: dict):
+    """Save story session data to MongoDB."""
+    try:
+        story_sessions.update_one(
+            {'_id': user_id},
+            {
+                '$set': {
+                    'last_updated': datetime.now(UTC),
+                    'current_session': story_data
+                },
+                '$inc': {'total_sessions': 1}
+            },
+            upsert=True
+        )
+        logging.info(f"Story session saved to MongoDB for user {user_id}")
+        return True
+    except Exception as e:
+        logging.error(f"Error saving story session to MongoDB for user {user_id}: {str(e)}")
+        return False
+
+def save_story_completion_to_mongodb(user_id: int, completion_data: dict):
+    """Save story completion data to MongoDB."""
+    try:
+        story_sessions.update_one(
+            {'_id': user_id},
+            {
+                '$set': {
+                    'last_completion': datetime.now(UTC),
+                    'completion_data': completion_data
+                },
+                '$push': {
+                    'completion_history': {
+                        'timestamp': datetime.now(UTC),
+                        'data': completion_data
+                    }
+                },
+                '$inc': {'total_completions': 1}
+            },
+            upsert=True
+        )
+        logging.info(f"Story completion saved to MongoDB for user {user_id}")
+        return True
+    except Exception as e:
+        logging.error(f"Error saving story completion to MongoDB for user {user_id}: {str(e)}")
+        return False
+
+def get_story_session_from_mongodb(user_id: int):
+    """Get story session data from MongoDB."""
+    try:
+        return story_sessions.find_one({'_id': user_id})
+    except Exception as e:
+        logging.error(f"Error getting story session from MongoDB for user {user_id}: {str(e)}")
+        return None
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a message when the command /start is issued."""
     if not update.message:
@@ -92,6 +168,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             del user_stage[user_id]
         if user_id in user_exploration_started:
             del user_exploration_started[user_id]
+        if user_id in user_choice_texts:
+            del user_choice_texts[user_id]
         
         # 设置用户状态为等待开始
         user_stage[user_id] = "awaiting_start"
@@ -186,6 +264,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 for attempt in range(max_retries):
                     try:
                         await update.message.reply_text(response, reply_markup=reply_markup)
+                        # 提取并存储选项文本
+                        _extract_and_store_choice_texts(user_id, response)
                         break
                     except Exception as e:
                         logging.error(f"发送消息失败 (第 {attempt + 1} 次): {str(e)}")
@@ -206,6 +286,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     'exploration_type': text.lower()
                 }
                 save_session_to_mongodb(user_id, session_data)
+                
+                # 保存故事会话数据
+                story_session_data = {
+                    'user_id': user_id,
+                    'session_start': datetime.now(UTC),
+                    'exploration_type': text.lower(),
+                    'current_chapter': 1,
+                    'total_chapters': 10,
+                    'user_choices': [],
+                    'interaction_history': []
+                }
+                save_story_session_to_mongodb(user_id, story_session_data)
                 
             finally:
                 start_typing.cancel()
@@ -243,6 +335,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 for attempt in range(max_retries):
                     try:
                         await update.message.reply_text(response, reply_markup=reply_markup)
+                        # 提取并存储选项文本
+                        _extract_and_store_choice_texts(user_id, response)
                         break
                     except Exception as e:
                         logging.error(f"发送消息失败 (第 {attempt + 1} 次): {str(e)}")
@@ -279,7 +373,32 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text.upper() in ['A', 'B', 'C', 'D']:
         start_typing = asyncio.create_task(_keep_typing(context.bot, chat_id))
         try:
-            response = await bot_instance.process_choice(text)
+            # 获取用户选择的具体文本内容
+            choice_text = ""
+            if user_id in user_choice_texts and text.upper() in user_choice_texts[user_id]:
+                choice_text = user_choice_texts[user_id][text.upper()]
+            
+            response = await bot_instance.process_choice(text, choice_text)
+            
+            # 更新故事会话数据
+            session_info = bot_instance.get_session_info()
+            story_session_data = {
+                'user_id': user_id,
+                'last_updated': datetime.now(UTC),
+                'current_chapter': session_info['current_chapter'],
+                'total_chapters': session_info['total_chapters'],
+                'user_choices': session_info['user_choices'],
+                'user_choice_texts': session_info['user_choice_texts'],
+                'interaction_history': session_info['interaction_history'],
+                'current_location': session_info['current_location'],
+                'current_time': session_info['current_time'],
+                'current_context': session_info['current_context'],
+                'story_theme': session_info['story_theme'],
+                'is_custom_mode': session_info['is_custom_mode'],
+                'custom_scene': session_info['custom_scene'],
+                'custom_character': session_info['custom_character']
+            }
+            save_story_session_to_mongodb(user_id, story_session_data)
             
             # 检查是否探索结束
             if "再一次进入探索之旅吗？" in response:
@@ -297,6 +416,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 }
                 save_exploration_result_to_mongodb(user_id, exploration_data)
                 
+                # 保存故事完成数据
+                completion_data = {
+                    'user_id': user_id,
+                    'completion_time': datetime.now(UTC),
+                    'total_chapters': session_info['total_chapters'],
+                    'user_choices': session_info['user_choices'],
+                    'user_choice_texts': session_info['user_choice_texts'],
+                    'interaction_history': session_info['interaction_history'],
+                    'final_result': response,
+                    'exploration_type': 'random' if not session_info['is_custom_mode'] else 'custom',
+                    'custom_scene': session_info['custom_scene'],
+                    'custom_character': session_info['custom_character']
+                }
+                save_story_completion_to_mongodb(user_id, completion_data)
+                
                 # 提供重新开始选项
                 keyboard = [
                     [KeyboardButton("是"), KeyboardButton("否")]
@@ -308,6 +442,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 for attempt in range(max_retries):
                     try:
                         await update.message.reply_text(response, reply_markup=reply_markup)
+                        # 探索结束时不需要提取选项文本
                         break
                     except Exception as e:
                         logging.error(f"发送消息失败 (第 {attempt + 1} 次): {str(e)}")
@@ -332,6 +467,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 for attempt in range(max_retries):
                     try:
                         await update.message.reply_text(response, reply_markup=reply_markup)
+                        # 提取并存储选项文本
+                        _extract_and_store_choice_texts(user_id, response)
                         break
                     except Exception as e:
                         logging.error(f"发送消息失败 (第 {attempt + 1} 次): {str(e)}")
@@ -368,6 +505,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 del user_stage[user_id]
             if user_id in user_exploration_started:
                 del user_exploration_started[user_id]
+            if user_id in user_choice_texts:
+                del user_choice_texts[user_id]
         return
     
     # 其他输入，提示用户选择选项

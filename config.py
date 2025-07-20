@@ -36,6 +36,7 @@ class DatabaseConfig:
     
     # Collections
     SESSIONS_COLLECTION = "telegram_sessions"
+    STORY_SESSIONS_COLLECTION = "telegram_session_story"  # 灵魂探索故事会话集合
     
     @classmethod
     def get_auth_uri(cls) -> str:
