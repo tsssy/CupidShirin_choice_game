@@ -180,7 +180,7 @@ class SoulExplorerBotOptimized:
         
         # 初始化状态
         self.total_chapters = 5  # 总回合数设为5
-        self.current_chapter = 1
+        self.current_chapter = 0
         self.user_choices = []  # 记录用户选择
         self.user_choice_texts = []  # 记录用户选择的具体文本内容
         self.is_custom_mode = False  # 是否为自定义模式
@@ -278,6 +278,7 @@ class SoulExplorerBotOptimized:
 - 自定义模式：{self.is_custom_mode}
 - 故事上下文：{context}
 """
+        system_prompt = "You must answer and interact with the user in English only. Do not use any Chinese.\n" + system_prompt
         return system_prompt
     
     async def _call_gemini_with_retry(self, system_prompt: str, user_prompt: str) -> str:
@@ -362,25 +363,24 @@ D. [选项D]
     async def process_choice(self, user_choice: str, choice_text: str = "") -> str:
         """处理用户选择"""
         try:
-            logging.info(f"[流程] 用户选择: {user_choice}, 当前章节: {self.current_chapter}/{self.total_chapters}")
-            # 记录用户选择
+            logging.info(f"[流程] 用户选择: {user_choice}, 当前章节: {self.current_chapter+1}/{self.total_chapters}")
             self.user_choices.append(user_choice)
             if choice_text:
                 self.user_choice_texts.append(choice_text)
-            
-            # 记录交互历史
             self.history_manager.add_interaction_entry(user_choice, choice_text, "")
-            
-            # 检查是否到达结尾
-            if self.current_chapter >= self.total_chapters:
+            # 先生成剧情，再自增章节
+            if self.current_chapter < self.total_chapters - 1:
+                response = await self._generate_next_chapter(user_choice, choice_text)
+                self.current_chapter += 1
+                logging.info(f"[流程] 进入下一章节: {self.current_chapter+1}")
+                return response
+            else:
+                # 最后一轮剧情，生成后直接进入结尾
+                response = await self._generate_next_chapter(user_choice, choice_text)
+                self.current_chapter += 1
                 logging.info(f"[流程] 进入结尾分析, 当前章节: {self.current_chapter}, 用户选择历史: {self.user_choices}")
-                return await self._generate_ending()
-            
-            # 生成下一章节
-            self.current_chapter += 1
-            logging.info(f"[流程] 进入下一章节: {self.current_chapter}")
-            return await self._generate_next_chapter(user_choice, choice_text)
-            
+                ending = await self._generate_ending()
+                return response + "\n\n" + ending
         except Exception as e:
             logging.error(f"处理用户选择失败: {str(e)}")
             return self._generate_default_chapter(user_choice)
@@ -468,7 +468,7 @@ D. [选项D]
     
     def reset_session(self):
         """重置会话"""
-        self.current_chapter = 1
+        self.current_chapter = 0
         self.user_choices.clear()
         self.user_choice_texts.clear()
         self.is_custom_mode = False
