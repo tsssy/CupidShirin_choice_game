@@ -179,7 +179,7 @@ class SoulExplorerBotOptimized:
         )
         
         # 初始化状态
-        self.total_chapters = 10
+        self.total_chapters = 5  # 总回合数设为5
         self.current_chapter = 1
         self.user_choices = []  # 记录用户选择
         self.user_choice_texts = []  # 记录用户选择的具体文本内容
@@ -221,11 +221,11 @@ class SoulExplorerBotOptimized:
         """加载提示词文件"""
         prompts = {}
         prompt_files = {
-            'role': 'prompt/role.md',
-            'object': 'prompt/object.md', 
-            'skill': 'prompt/skill.md',
-            'constraint': 'prompt/constraint.md',
-            'workflow': 'prompt/workflow.md'
+            'role': 'prompt/soul_explorer_role.md',
+            'object': 'prompt/soul_explorer_object.md', 
+            'skill': 'prompt/soul_explorer_skill.md',
+            'constraint': 'prompt/soul_explorer_constraint.md',
+            'workflow': 'prompt/soul_explorer_workflow.md'
         }
         
         for key, file_path in prompt_files.items():
@@ -282,25 +282,27 @@ class SoulExplorerBotOptimized:
     
     async def _call_gemini_with_retry(self, system_prompt: str, user_prompt: str) -> str:
         """使用重试机制调用Gemini API"""
+        import traceback
         async def _call_gemini():
             try:
                 # 构建完整提示词
                 full_prompt = f"{system_prompt}\n\n{user_prompt}"
-                
-                # 调用Gemini
+                logging.info(f"[AI调用] 开始Gemini请求，prompt片段: {full_prompt[:100]} ...")
                 response = self.model.generate_content(full_prompt)
-                
                 if response.text:
+                    logging.info(f"[AI调用] Gemini返回内容长度: {len(response.text)}")
                     return response.text.strip()
                 else:
                     raise Exception("Gemini返回空响应")
-                    
             except Exception as e:
-                logging.error(f"Gemini API调用失败: {str(e)}")
+                logging.error(f"[AI调用异常] Gemini API调用失败: {str(e)}\n{traceback.format_exc()}")
                 raise e
-        
         # 使用指数退避重试机制
-        return await self.retry_handler.execute(_call_gemini)
+        try:
+            return await self.retry_handler.execute(_call_gemini)
+        except Exception as e:
+            logging.error(f"[AI调用异常] Gemini重试后仍失败: {str(e)}\n{traceback.format_exc()}")
+            raise e
     
     async def start_exploration(self, user_input: str) -> str:
         """开始灵魂探索"""
@@ -360,6 +362,7 @@ D. [选项D]
     async def process_choice(self, user_choice: str, choice_text: str = "") -> str:
         """处理用户选择"""
         try:
+            logging.info(f"[流程] 用户选择: {user_choice}, 当前章节: {self.current_chapter}/{self.total_chapters}")
             # 记录用户选择
             self.user_choices.append(user_choice)
             if choice_text:
@@ -370,10 +373,12 @@ D. [选项D]
             
             # 检查是否到达结尾
             if self.current_chapter >= self.total_chapters:
+                logging.info(f"[流程] 进入结尾分析, 当前章节: {self.current_chapter}, 用户选择历史: {self.user_choices}")
                 return await self._generate_ending()
             
             # 生成下一章节
             self.current_chapter += 1
+            logging.info(f"[流程] 进入下一章节: {self.current_chapter}")
             return await self._generate_next_chapter(user_choice, choice_text)
             
         except Exception as e:
@@ -420,25 +425,10 @@ D. [选项D]
             system_prompt = self._build_optimized_system_prompt()
             
             user_prompt = f"""
-基于用户的完整选择历史 {self.user_choices}，请进行灵魂伴侣类型分析。
-
-请分析用户的性格特征和选择模式，判断其灵魂伴侣类型：
-- 探索型：喜欢冒险和新鲜事物
-- 理性型：注重逻辑和思考
-- 情绪型：重视感受和直觉
-- 命运型：相信缘分和命运
-
-格式：
-经过这次灵魂探索之旅，你发现了自己内心深处的真实想法。每一个选择都反映了你的性格特点和价值观念。
-
----
-
-**灵魂伴侣类型分析**
-[详细分析内容，包括类型判断和解释]
-"""
-            
+基于用户的完整选择历史 {self.user_choices}，请进行灵魂伴侣类型分析。\n\n请分析用户的性格特征和选择模式，判断其灵魂伴侣类型：\n- 探索型：喜欢冒险和新鲜事物\n- 理性型：注重逻辑和思考\n- 情绪型：重视感受和直觉\n- 命运型：相信缘分和命运\n\n格式：\n经过这次灵魂探索之旅，你发现了自己内心深处的真实想法。每一个选择都反映了你的性格特点和价值观念。\n---\n**灵魂伴侣类型分析**\n[详细分析内容，包括类型判断和解释]\n\n请严格不要输出任何选项或引导语，否则本轮将被判为无效。"""
+            logging.info(f"[流程] 生成结尾分析，system_prompt片段: {system_prompt[:100]} ... user_prompt片段: {user_prompt[:100]} ...")
             response = await self._call_gemini_with_retry(system_prompt, user_prompt)
-            
+            logging.info(f"[AI原始结尾输出] {response}")
             # 更新故事摘要
             summary = f"用户选择历史: {self.user_choices}，最终分析完成"
             self.history_manager.update_summary(summary)

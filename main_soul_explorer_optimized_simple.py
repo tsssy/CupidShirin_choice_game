@@ -14,6 +14,23 @@ import pymongo
 from datetime import datetime, UTC
 from config import Config
 from soul_explorer_bot_optimized import SoulExplorerBotOptimized
+import re
+import traceback
+
+# 彻底清理AI输出中的选项和引导语
+# 中文注释：去掉“请选择你的下一步行动”、A/B/C/D选项、“你选择了...”等冗余内容
+# 并去除多余空行，保证结尾输出干净
+
+def clean_final_response(response: str) -> str:
+    # 去掉“请选择你的下一步行动”及其后内容（多次出现也清理）
+    response = re.sub(r'请选择你的下一步行动[:：]?.*', '', response, flags=re.DOTALL)
+    # 去掉所有A. B. C. D.等选项（支持多种格式和无换行）
+    response = re.sub(r'[\n\r]?[A-D][.．、:：\\s][^\n\r]*', '', response)
+    # 去掉“你选择了...”等冗余
+    response = re.sub(r'你选择了[^\n\r]*', '', response)
+    # 去掉多余空行
+    response = re.sub(r'\n{2,}', '\n', response)
+    return response.strip()
 
 # 配置日志
 logging.basicConfig(
@@ -146,8 +163,10 @@ class SoulExplorerTelegramBot:
             
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            await query.edit_message_text(
-                f"{story_text}\n\n请选择你的下一步行动：",
+            # 发送新消息（不覆盖历史）
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"{story_text}\n\n请选择你的下一步行动：",
                 reply_markup=reply_markup,
                 parse_mode=ParseMode.MARKDOWN
             )
@@ -161,17 +180,71 @@ class SoulExplorerTelegramBot:
         try:
             query = update.callback_query
             
-            # 显示处理中消息
-            await query.edit_message_text("🔄 正在生成你的故事...")
-            
             # 获取选择文本
             choice_text = self._get_choice_text(query.message.reply_markup, choice)
+            
+            # 回复用户选择
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"你选择了 {choice}：{choice_text}",
+                parse_mode=ParseMode.MARKDOWN
+            )
             
             # 处理选择
             response = await self.soul_bot.process_choice(choice, choice_text)
             
-            # 更新会话信息
+            # ====== 实时写入/更新 telegram_session_story 集合 ======
             user_id = update.effective_user.id
+            username = update.effective_user.username or "未知用户"
+            # 用 start_time 作为本次会话唯一标识
+            session_start_time = getattr(self.soul_bot, 'session_start_time', None)
+            if not session_start_time:
+                session_start_time = datetime.now(UTC)
+                self.soul_bot.session_start_time = session_start_time
+            session_id = f"{user_id}_{session_start_time.strftime('%Y%m%d%H%M%S')}"
+            
+            # 尝试提取最终分析和灵魂伴侣类型
+            final_analysis = None
+            soulmate_type = None
+            if self.soul_bot.current_chapter >= self.soul_bot.total_chapters:
+                final_analysis = response
+                # 简单正则提取类型关键词
+                match = re.search(r"类型[:：]\s*([\u4e00-\u9fa5A-Za-z]+)", response)
+                if match:
+                    soulmate_type = match.group(1)
+                else:
+                    # 兜底：找“探索型/理性型/情绪型/命运型”关键词
+                    for t in ["探索型", "理性型", "情绪型", "命运型"]:
+                        if t in response:
+                            soulmate_type = t
+                            break
+            
+            # 组装数据
+            story_data = {
+                'user_id': user_id,
+                'username': username,
+                'session_id': session_id,
+                'start_time': session_start_time,
+                'last_update_time': datetime.now(UTC),
+                'current_chapter': self.soul_bot.current_chapter,
+                'total_rounds': len(self.soul_bot.user_choices),
+                'choices': self.soul_bot.user_choices,
+                'choice_texts': self.soul_bot.user_choice_texts,
+                'story_history': self.soul_bot.history_manager.story_history,
+                'final_analysis': final_analysis,
+                'soulmate_type': soulmate_type,
+            }
+            # 实时upsert
+            if not hasattr(self, 'story_sessions_collection'):
+                self.story_sessions_collection = self.db[Config.Database.STORY_SESSIONS_COLLECTION]
+            self.story_sessions_collection.update_one(
+                {'user_id': user_id, 'session_id': session_id},
+                {'$set': story_data},
+                upsert=True
+            )
+            # ====== END ======
+            
+            # 更新会话信息
             session_data = {
                 'user_id': user_id,
                 'last_activity': datetime.now(UTC),
@@ -183,28 +256,41 @@ class SoulExplorerTelegramBot:
             )
             
             # 检查是否到达结尾
-            if self.soul_bot.current_chapter > self.soul_bot.total_chapters:
+            if self.soul_bot.current_chapter >= self.soul_bot.total_chapters:
                 # 故事结束
-                await query.edit_message_text(
-                    response,
-                    parse_mode=ParseMode.MARKDOWN
-                )
-                
-                # 添加重新开始按钮
-                keyboard = [[InlineKeyboardButton("🔄 重新开始", callback_data="start_exploration")]]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text="想要再次体验灵魂探索吗？",
-                    reply_markup=reply_markup
-                )
-                
-                # 重置会话
+                logger.info(f"[流程] 进入结尾分支，AI原始输出: {response}")
+                clean_response = clean_final_response(response)
+                logger.info(f"[流程] 结尾清理后输出: {clean_response}")
+                try:
+                    await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=clean_response,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                except Exception as e:
+                    logger.error(f'发送画像总结失败: {e}\n{traceback.format_exc()}')
+                try:
+                    logger.info("准备发送thank you引导消息")
+                    await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text="Well, that brings our chat to a close! Thanks so much for your feedback. It really helps me improve and become more helpful. If you're looking to get matched or need more emotional support, feel free to join our channel! 👉https://t.me/lovelush_soulmate"
+                    )
+                    logger.info("thank you引导消息已发送")
+                except Exception as e:
+                    logger.error(f'发送引导消息失败: {e}\n{traceback.format_exc()}')
+                    try:
+                        logger.info("尝试发送中文简短感谢语")
+                        await context.bot.send_message(
+                            chat_id=update.effective_chat.id,
+                            text="感谢你的参与，祝你生活愉快！"
+                        )
+                        logger.info("中文感谢语已发送")
+                    except Exception as e2:
+                        logger.error(f'发送中文感谢语仍然失败: {e2}\n{traceback.format_exc()}')
                 self.soul_bot.reset_session()
                 
             else:
-                # 继续故事
+                # 继续故事，发送新消息
                 story_text, options = self._parse_story_response(response)
                 
                 keyboard = []
@@ -217,8 +303,9 @@ class SoulExplorerTelegramBot:
                 
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
-                await query.edit_message_text(
-                    f"{story_text}\n\n请选择你的下一步行动：",
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=f"{story_text}\n\n请选择你的下一步行动：",
                     reply_markup=reply_markup,
                     parse_mode=ParseMode.MARKDOWN
                 )
