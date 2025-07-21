@@ -35,7 +35,7 @@ def check_gemini_api_limits():
     try:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
         start_time = time.time()
         response = model.generate_content("Hello")

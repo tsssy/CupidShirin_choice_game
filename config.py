@@ -54,7 +54,7 @@ class APIConfig:
     
     # Gemini AI Configuration
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    GEMINI_MODEL_NAME = "gemini-2.5-pro"
+    GEMINI_MODEL_NAME = "gemini-2.5-flash"
     
     # Telegram Bot Configuration
     # 灵魂探索机器人 token
