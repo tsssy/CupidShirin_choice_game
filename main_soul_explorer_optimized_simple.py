@@ -166,7 +166,7 @@ class SoulExplorerTelegramBot:
             # 发送新消息（不覆盖历史）
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=f"{story_text}\n\n请选择你的下一步行动：",
+                text=f"{story_text}\n\nPlease choose your next action:",
                 reply_markup=reply_markup,
                 parse_mode=ParseMode.MARKDOWN
             )
@@ -186,7 +186,7 @@ class SoulExplorerTelegramBot:
             # 回复用户选择
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=f"你选择了 {choice}：{choice_text}",
+                text=f"You chose {choice}: {choice_text}",
                 parse_mode=ParseMode.MARKDOWN
             )
             
@@ -273,7 +273,7 @@ class SoulExplorerTelegramBot:
                     logger.info("准备发送thank you引导消息")
                     await context.bot.send_message(
                         chat_id=update.effective_chat.id,
-                        text="Well, that brings our chat to a close! Thanks so much for your feedback. It really helps me improve and become more helpful. If you're looking to get matched or need more emotional support, feel free to join our channel! 👉https://t.me/lovelush_soulmate"
+                        text=THANK_YOU_MESSAGE
                     )
                     logger.info("thank you引导消息已发送")
                 except Exception as e:
@@ -305,7 +305,7 @@ class SoulExplorerTelegramBot:
                 
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
-                    text=f"{story_text}\n\n请选择你的下一步行动：",
+                    text=f"{story_text}\n\nPlease choose your next action:",
                     reply_markup=reply_markup,
                     parse_mode=ParseMode.MARKDOWN
                 )
@@ -320,9 +320,9 @@ class SoulExplorerTelegramBot:
             query = update.callback_query
             
             # 这里可以添加查看男生答案的逻辑
-            response_text = "📊 男生答案统计功能正在开发中...\n\n敬请期待！"
+            response_text = "📊 Male answer statistics function is under development...\n\nStay tuned!"
             
-            keyboard = [[InlineKeyboardButton("🔙 返回", callback_data="start_exploration")]]
+            keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="start_exploration")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await query.edit_message_text(
@@ -382,7 +382,7 @@ class SoulExplorerTelegramBot:
             
             # 检查是否是命令
             if message_text.startswith('/'):
-                await update.message.reply_text("请使用 /start 命令开始灵魂探索之旅！")
+                await update.message.reply_text("Please use the /start command to begin your soul exploration journey!")
                 return
             
             # 检查是否是开始探索
@@ -392,8 +392,8 @@ class SoulExplorerTelegramBot:
             
             # 默认回复
             await update.message.reply_text(
-                "请使用 /start 命令开始你的灵魂探索之旅！\n\n"
-                "或者点击下方按钮开始体验：",
+                "Please use the /start command to begin your soul exploration journey!\n\n"
+                "Or click the button below to experience it:",
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton(Config.Bot.START_EXPERIENCE_BUTTON, callback_data="start_exploration")
                 ]])
@@ -412,6 +412,9 @@ class SoulExplorerTelegramBot:
                 await update.effective_message.reply_text(Config.Bot.ERROR_PROCESSING_MESSAGE)
         except Exception as e:
             logger.error(f"发送错误消息时出错: {str(e)}")
+
+# 例如，将感谢语、按钮等全部英文化
+THANK_YOU_MESSAGE = "Well, that brings our chat to a close! Thanks so much for your feedback. It really helps me improve and become more helpful. If you're looking to get matched or need more emotional support, feel free to join our channel! 👉https://t.me/lovelush_soulmate"
 
 def main():
     """主函数"""

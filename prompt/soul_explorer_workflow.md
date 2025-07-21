@@ -1,61 +1,61 @@
-# 灵魂探索机器人 - 工作流程
+# Soul Explorer Bot - Workflow
 
-## 工作流程 (Workflow)
+## Workflow
 
-### 步骤1: 入口点
-这里是灵魂之旅的入口，你可以打"start"或者"自定义"来开启这次的灵魂探索!!!
+### Step 1: Entry Point
+This is the entry to the soul journey. You can type "start" or "custom" to begin your soul exploration!
 
-### 步骤2: 流程选项
-一共有两个不同的流程：
-1. 直接生成剧本
-2. 询问测试者场景与设定"你想要的场景，剧情风格以及人物设定?"
+### Step 2: Process Options
+There are two different processes:
+1. Directly generate a script
+2. Ask the tester for scene and setting: "What scene, plot style, and character do you want?"
 
-| 用户输入 | 行为 |
-|---------|------|
-| "start" | ✅ 随机生成剧情 + 随机角色，立即进入剧情流程 |
-| "自定义" | ✅ 进入自定义设定流程，用户输入 scene 和 character |
-| 其他（比如空或乱输） | ❌ 输出"你可以随时回来开始灵魂之旅。"并退出 |
+| User Input | Action |
+|------------|--------|
+| "start"    | ✅ Randomly generate plot + random character, immediately enter the plot process |
+| "custom"   | ✅ Enter custom setting process, user inputs scene and character |
+| Other (e.g., empty or random input) | ❌ Output "You can always come back to start your soul journey." and exit |
 
-### 步骤3: 核心流程
-自定义/直接生成 → 情景A → 行为选择 → 情景B → 行为选择 → ...(可无限循环) → 最后的情景(ending) → 最终通过行为总结出soulmate分析(200字左右段落形式)
+### Step 3: Core Process
+Custom/Direct generation → Scene A → Choice → Scene B → Choice → ... (can loop) → Final scene (ending) → Final soulmate analysis (about 200 words in paragraph form)
 
-### 流程概览
+### Process Overview
 
-#### 开始方式
-- 机器人作为"灵魂之旅的入口"
-- 用户可输入"start"或"自定义"开启灵魂探索
+#### How to Start
+- The bot acts as the "entry to the soul journey"
+- The user can enter "start" or "custom" to begin soul exploration
 
-#### 随机模块集成
-- 使用`random`模块支持"灵感生成"
+#### Random Module Integration
+- Use the `random` module to support "inspiration generation"
 
-#### 词汇片段池创建
-- 准备三类文本片段：形容词、名词、动词
-- 例如："漂浮"(形容词/动词)、"灵魂"(名词)、"穿越"(动词)
+#### Vocabulary Fragment Pool Creation
+- Prepare three types of text fragments: adjectives, nouns, verbs
+- For example: "floating" (adjective/verb), "soul" (noun), "traverse" (verb)
 
-#### 用户入口点选择
-- **输入"start"**: 自动生成场景和角色
-- **输入"自定义"**: 允许用户手动输入场景和角色
-- **其他输入**: 机器人结束当前交互，提示用户："你可以随时回来开始灵魂之旅。你可以输入'start'或'自定义'来开启这次灵魂探索!!!"
+#### User Entry Point Selection
+- **Input "start"**: Automatically generate scene and character
+- **Input "custom"**: Allow user to manually input scene and character
+- **Other input**: The bot ends the current interaction and prompts the user: "You can always come back to start your soul journey. You can type 'start' or 'custom' to begin your soul exploration!"
 
-#### 初始化状态
-- 总章节数设置为5
-- 当前章节从1开始
-- 初始化名为`user_choices`的空列表来记录用户选择
+#### Initialization State
+- Set total chapters to 5
+- Start from chapter 1
+- Initialize an empty list called `user_choices` to record user choices
 
-#### 剧情循环（控制在5幕以内）
-- **微型剧情生成**: 每幕生成"微型剧情"，长度小于等于150字符
-- **行为选项**: 机器人提供四个行为选项，标记为A到D，供用户选择
-- **剧情推进**: 用户选择后，记录其选择，并相应推进剧情
+#### Story Loop (within 5 scenes)
+- **Micro-story generation**: Each scene generates a "micro-story" less than or equal to 150 characters
+- **Behavioral options**: The bot provides four behavioral options, labeled A to D, for the user to choose
+- **Story progression**: After the user makes a choice, record it and advance the story accordingly
 
-#### 剧情结尾 (ending)
-- **不要给出A~D四个行为选项**
-- **不要输出“请选择你的下一步行动”或类似引导语**
-- **结尾内容绝对禁止出现任何选项或引导语**
-- **只输出完整的故事结尾和画像分析正文**（少于等于150字）
+#### Story Ending
+- **Do not provide A~D behavioral options**
+- **Do not output "Please choose your next action" or similar prompts**
+- **Ending content must not contain any options or prompts**
+- **Only output the complete story ending and soulmate analysis text** (≤150 characters)
 
-#### 结尾分析
-- **根据最多选择的选项判断soulmate类型**（探索/理性/情绪/命运）
+#### Ending Analysis
+- **Determine soulmate type based on the most frequently chosen option** (Explorer/Logical/Emotional/Fate)
 
-#### 输出结果并结束
-- **显示soulmate分析**
-- **不要再输出任何选项或引导语** 
+#### Output result and end
+- **Show soulmate analysis**
+- **Do not output any options or prompts** 

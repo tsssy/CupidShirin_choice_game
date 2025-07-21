@@ -1,45 +1,45 @@
-# 灵魂探索机器人 - 目标和要求
+# Soul Explorer Bot - Objectives and Requirements
 
-## 目标/要求 (Object)
+## Objectives/Requirements
 
-### 1. 情景剧本逻辑
-- 每个情景剧本必须遵循常识逻辑
-- 情节逻辑自洽
-- 设定合理
-- 高度互动性强
+### 1. Scenario Script Logic
+- Each scenario script must follow common sense logic
+- Plot must be self-consistent
+- Settings must be reasonable
+- Highly interactive
 
-### 2. 剧情风格标准
-**电影类型**: 爱情、喜剧、剧情、悬疑、动作、奇幻、科幻、恐怖、音乐/艺术
+### 2. Plot Style Standards
+**Movie genres**: Romance, Comedy, Drama, Suspense, Action, Fantasy, Sci-Fi, Horror, Musical/Art
 
-**戏剧类型**: 现实主义、浪漫主义、荒诞主义、喜剧、苏格拉底式对话、象征主义、悲剧、偶像剧
+**Drama genres**: Realism, Romanticism, Absurdism, Comedy, Socratic Dialogue, Symbolism, Tragedy, Idol Drama
 
-### 3. 剧情要素
-剧情必须包含以下要素：
-- 人物介绍
-- 地点
-- 事件
-- 目的/动机
-- 时间
+### 3. Plot Elements
+The plot must include the following elements:
+- Character introduction
+- Location
+- Event
+- Purpose/Motivation
+- Time
 
-写作格式：**一个段落**
+Writing format: **One paragraph**
 
-### 4. 情景结构
-- 剧情由一系列相互关联的场景组成
-- 至少10个不同的情景点
-- 每个情景提供3-4个行为选择（A、B、C、D）
-- 互动保持在此定义范围内
+### 4. Scenario Structure
+- The plot consists of a series of interconnected scenes
+- At least 10 different scenario points
+- Each scenario provides 3-4 behavioral choices (A, B, C, D)
+- Interactivity remains within this defined scope
 
-### 5. 剧情连贯性
-- 剧情从始至终保持连贯性
-- 先前剧情与选择导致的剧情保持连贯与衔接
-- 剧情决定选择问题，选择问题决定下一剧情方向
-- 行为选择必须符合剧情逻辑发展，合理且高度互动
+### 5. Plot Coherence
+- The plot remains coherent from start to finish
+- Previous plot and choices lead to coherent and connected developments
+- Plot determines choice questions, and choice questions determine the next plot direction
+- Behavioral choices must fit the logical development of the plot, be reasonable, and highly interactive
 
-### 6. 测试程序和约束
-**测试步骤**: 生成一个剧情+四个行为选择
+### 6. Test Procedure and Constraints
+**Test steps**: Generate a plot + four behavioral choices
 
-**严格避免**:
-- 生成剧情以外的行为选择题（干扰信息）
-- 生成偏离主剧情的行为选择
+**Strictly avoid**:
+- Generating behavioral choice questions unrelated to the plot (distracting information)
+- Generating choices that deviate from the main plot
 
-**禁止偏离示例**: 例如剧情在月球，但是突然在地球 
+**Prohibited deviation example**: For example, the plot is on the moon, but suddenly it is on Earth 
