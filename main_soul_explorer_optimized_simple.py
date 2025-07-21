@@ -132,7 +132,7 @@ class SoulExplorerTelegramBot:
             query = update.callback_query
             
             # 显示准备消息
-            await query.edit_message_text("🚀 正在准备你的灵魂探索之旅...")
+            await query.edit_message_text("🚀 Preparing your soul exploration journey...")
             
             # 开始探索
             response = await self.soul_bot.start_exploration("start")
@@ -153,21 +153,22 @@ class SoulExplorerTelegramBot:
             # 解析响应并创建选项按钮
             story_text, options = self._parse_story_response(response)
             
+            # 拼接选项详细内容
+            options_text = ""
             keyboard = []
             for i, option in enumerate(options):
-                choice_letter = chr(65 + i)  # A, B, C, D
+                choice_letter = chr(65 + i)
+                options_text += f"{choice_letter}. {option}\n"
                 keyboard.append([InlineKeyboardButton(
                     f"{choice_letter}. {option}",
                     callback_data=f"choice_{choice_letter}"
                 )])
-            
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
+
             # 发送新消息（不覆盖历史）
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=f"{story_text}\n\nPlease choose your next action:",
-                reply_markup=reply_markup,
+                text=f"{story_text}\n\n{options_text}\nPlease choose your next action:",
+                reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode=ParseMode.MARKDOWN
             )
             
@@ -292,21 +293,19 @@ class SoulExplorerTelegramBot:
             else:
                 # 继续故事，发送新消息
                 story_text, options = self._parse_story_response(response)
-                
+                options_text = ""
                 keyboard = []
                 for i, option in enumerate(options):
-                    choice_letter = chr(65 + i)  # A, B, C, D
+                    choice_letter = chr(65 + i)
+                    options_text += f"{choice_letter}. {option}\n"
                     keyboard.append([InlineKeyboardButton(
                         f"{choice_letter}. {option}",
                         callback_data=f"choice_{choice_letter}"
                     )])
-                
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
-                    text=f"{story_text}\n\nPlease choose your next action:",
-                    reply_markup=reply_markup,
+                    text=f"{story_text}\n\n{options_text}\nPlease choose your next action:",
+                    reply_markup=InlineKeyboardMarkup(keyboard),
                     parse_mode=ParseMode.MARKDOWN
                 )
             

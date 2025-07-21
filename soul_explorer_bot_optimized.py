@@ -251,7 +251,7 @@ class SoulExplorerBotOptimized:
         context = self.history_manager.get_optimized_context()
         
         system_prompt = f"""
-你是一个专业的灵魂探索机器人，帮助用户通过互动故事了解自己的灵魂伴侣类型。
+You must answer and interact with the user in English only. Do not use any Chinese.
 
 {self.prompts.get('role', '')}
 
@@ -263,20 +263,20 @@ class SoulExplorerBotOptimized:
 
 {self.prompts.get('workflow', '')}
 
-重要规则：
-1. 每个剧情必须在100-150字符以内
-2. 提供A、B、C、D四个选项
-3. 严格根据用户选择推进剧情
-4. 最多10个章节
-5. 最后进行灵魂伴侣类型分析
-6. 不要回答关于自己或流程的问题
+Important Rules:
+1. Each story must be within 100-150 characters.
+2. Provide A, B, C, D four options.
+3. Strictly advance the story based on user choices.
+4. Maximum 10 chapters.
+5. Perform soulmate type analysis at the end.
+6. Do not answer questions about yourself or the process.
 
-当前状态：
-- 总章节数：{self.total_chapters}
-- 当前章节：{self.current_chapter}
-- 用户选择历史：{self.user_choices}
-- 自定义模式：{self.is_custom_mode}
-- 故事上下文：{context}
+Current State:
+- Total Chapters: {self.total_chapters}
+- Current Chapter: {self.current_chapter}
+- User Choice History: {self.user_choices}
+- Custom Mode: {self.is_custom_mode}
+- Story Context: {context}
 """
         system_prompt = "You must answer and interact with the user in English only. Do not use any Chinese.\n" + system_prompt
         return system_prompt
@@ -329,24 +329,24 @@ class SoulExplorerBotOptimized:
             system_prompt = self._build_optimized_system_prompt()
             
             user_prompt = f"""
-请基于以下元素生成一个灵魂探索故事的开头：
-- 形容词：{adj}
-- 名词：{noun}
-- 动词：{verb}
+Please generate a soul exploration story beginning based on the following elements:
+- Adjective: {adj}
+- Noun: {noun}
+- Verb: {verb}
 
-要求：
-1. 故事开头在100-150字符以内
-2. 提供A、B、C、D四个选项
-3. 选项要体现不同的性格特征
-4. 为后续章节留下发展空间
+Requirements:
+1. Story beginning must be within 100-150 characters.
+2. Provide A, B, C, D four options.
+3. Options must reflect different personality traits.
+4. Leave room for development in subsequent chapters.
 
-格式：
-[故事内容]
+Format:
+[Story Content]
 
-A. [选项A]
-B. [选项B]
-C. [选项C]
-D. [选项D]
+A. [Option A]
+B. [Option B]
+C. [Option C]
+D. [Option D]
 """
             
             response = await self._call_gemini_with_retry(system_prompt, user_prompt)
@@ -391,21 +391,21 @@ D. [选项D]
             system_prompt = self._build_optimized_system_prompt()
             
             user_prompt = f"""
-基于用户的选择 '{previous_choice}' 和选项文本 '{choice_text}'，请生成第 {self.current_chapter} 章的故事内容。
+Based on the user's choice '{previous_choice}' and option text '{choice_text}', please generate the story content for Chapter {self.current_chapter}.
 
-要求：
-1. 故事内容在100-150字符以内
-2. 提供A、B、C、D四个选项
-3. 根据用户选择推进剧情
-4. 保持故事的连贯性和吸引力
+Requirements:
+1. Story content must be within 100-150 characters.
+2. Provide A, B, C, D four options.
+3. Advance the story based on user choices.
+4. Maintain story coherence and attractiveness.
 
-格式：
-[故事内容]
+Format:
+[Story Content]
 
-A. [选项A]
-B. [选项B]
-C. [选项C]
-D. [选项D]
+A. [Option A]
+B. [Option B]
+C. [Option C]
+D. [Option D]
 """
             
             response = await self._call_gemini_with_retry(system_prompt, user_prompt)
@@ -425,12 +425,26 @@ D. [选项D]
             system_prompt = self._build_optimized_system_prompt()
             
             user_prompt = f"""
-基于用户的完整选择历史 {self.user_choices}，请进行灵魂伴侣类型分析。\n\n请分析用户的性格特征和选择模式，判断其灵魂伴侣类型：\n- 探索型：喜欢冒险和新鲜事物\n- 理性型：注重逻辑和思考\n- 情绪型：重视感受和直觉\n- 命运型：相信缘分和命运\n\n格式：\n经过这次灵魂探索之旅，你发现了自己内心深处的真实想法。每一个选择都反映了你的性格特点和价值观念。\n---\n**灵魂伴侣类型分析**\n[详细分析内容，包括类型判断和解释]\n\n请严格不要输出任何选项或引导语，否则本轮将被判为无效。"""
+Based on the user's complete choice history {self.user_choices}, please provide a soulmate type analysis.
+
+Analyze the user's personality traits and choice patterns, and determine their soulmate type:
+- Explorer: likes adventure and new things
+- Logical: values logic and thinking
+- Emotional: values feelings and intuition
+- Destiny: believes in fate and destiny
+
+Format:
+After this soul exploration journey, you have discovered your true thoughts deep inside. Each choice reflects your personality traits and values.
+---
+**Soulmate Type Analysis**
+[Detailed analysis, including type judgment and explanation]
+
+IMPORTANT: Please output ONLY in English. Do NOT output any options, prompts, or any Chinese text. If you output anything else, this round will be considered invalid."""
             logging.info(f"[流程] 生成结尾分析，system_prompt片段: {system_prompt[:100]} ... user_prompt片段: {user_prompt[:100]} ...")
             response = await self._call_gemini_with_retry(system_prompt, user_prompt)
             logging.info(f"[AI原始结尾输出] {response}")
             # 更新故事摘要
-            summary = f"用户选择历史: {self.user_choices}，最终分析完成"
+            summary = f"User choice history: {self.user_choices}, final analysis complete"
             self.history_manager.update_summary(summary)
             
             return response
@@ -442,29 +456,22 @@ D. [选项D]
     def _generate_default_story(self) -> str:
         """生成默认故事"""
         default_stories = [
-            "你站在一个神秘的十字路口，四周弥漫着淡淡的雾气。前方有三条不同的道路，每条都通向未知的远方。你的内心充满了好奇和期待，想要探索这个神秘的世界。\n\nA. 选择左边的道路，那里有温暖的灯光\nB. 选择中间的道路，那里有古老的石阶\nC. 选择右边的道路，那里有清脆的鸟鸣\nD. 站在原地思考，观察周围的环境",
-            
-            "你发现自己置身于一个古老的图书馆中，书架高耸入云，空气中弥漫着书香。一本神秘的书从书架上掉落，发出清脆的响声。你感到一种莫名的吸引力。\n\nA. 立即捡起那本书，翻开阅读\nB. 先观察周围的环境，确保安全\nC. 询问图书管理员关于这本书的信息\nD. 将书放回原处，继续寻找其他书籍"
+            """You stand at a mysterious crossroads, surrounded by a faint mist. There are three different paths leading to unknown horizons. Your heart is filled with curiosity and anticipation, wanting to explore this mysterious world.\n\nA. Choose the left path, where there are warm lights.\nB. Choose the middle path, where there are ancient stone steps.\nC. Choose the right path, where there are clear bird chirps.\nD. Stay in place and observe the surroundings.""",
+            """You find yourself in an ancient library, with towering bookcases and a scent of books. A mysterious book falls from the shelf, emitting a crisp sound. You feel a mysterious attraction.\n\nA. Immediately pick up that book, open it and read.\nB. First observe the surroundings, ensure safety.\nC. Ask the librarian about the information about this book.\nD. Put the book back to its original place, continue searching for other books."""
         ]
         return random.choice(default_stories)
     
     def _generate_default_chapter(self, previous_choice: str) -> str:
         """生成默认章节"""
         default_chapters = [
-            "你继续前行，发现了一个小木屋。木屋的门半开着，里面传来温暖的火光。你感到一种家的温暖。\n\nA. 走进木屋，探索内部\nB. 在门外等待，观察情况\nC. 绕道而行，继续前进\nD. 返回原路，寻找其他方向",
-            
-            "你遇到了一位神秘的老人，他正在花园里修剪花朵。老人抬头看了你一眼，眼中闪烁着智慧的光芒。\n\nA. 主动上前打招呼，询问道路\nB. 保持距离，观察老人的行为\nC. 等待老人先开口说话\nD. 默默离开，不打扰老人"
+            """You continue forward and find a small wooden house. The door of the wooden house is slightly ajar, and warm light shines from inside. You feel a sense of warmth at home.\n\nA. Enter the wooden house, explore the interior.\nB. Wait outside the door, observe the situation.\nC. Go around, continue forward.\nD. Return to the original path, look for other directions.""",
+            """You encounter a mysterious old man, who is pruning flowers in the garden. The old man looked at you, his eyes gleaming with wisdom.\n\nA. Actively approach, ask for the way.\nB. Keep a distance, observe the old man's behavior.\nC. Wait for the old man to speak first.\nD. Leave silently, do not disturb the old man."""
         ]
         return random.choice(default_chapters)
     
     def _generate_default_ending(self) -> str:
-        """生成默认结尾"""
-        return """经过这次灵魂探索之旅，你发现了自己内心深处的真实想法。每一个选择都反映了你的性格特点和价值观念。
-
----
-
-**灵魂伴侣类型分析**
-基于你在探索过程中的选择，你展现出了独特的个性特征。你倾向于在行动前深思熟虑，注重内心的感受和直觉。你的灵魂伴侣应该是一个能够理解你内心世界的人，能够与你进行深层次的交流，共同成长。"""
+        """Generate default ending in English only"""
+        return """After this soul exploration journey, you have discovered your true thoughts deep inside. Each choice reflects your personality traits and values.\n\n---\n\n**Soulmate Type Analysis**\nBased on your choices, you have shown unique personality traits. You tend to think carefully before acting and value your inner feelings and intuition. Your soulmate should be someone who understands your inner world, can communicate deeply with you, and grow together with you."""
     
     def reset_session(self):
         """重置会话"""
